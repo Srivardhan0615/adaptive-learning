@@ -30,50 +30,65 @@ export default function LessonPage() {
   const [loading, setLoading] = useState(true);
   const [quickCheckPassed, setQuickCheckPassed] = useState(false);
   const [whyOpen, setWhyOpen] = useState(false);
+  const [activeVariant, setActiveVariant] = useState<ContentVariantType>('default');
   const requestedVariant = (location.state?.variant as ContentVariantType | undefined) ?? 'default';
 
   useEffect(() => {
     Promise.all([getLessons(topicId), getProgress(), getTopicById(topicId)]).then(async ([lessonData, progressData, topicData]) => {
-      if (lessonData[0] && requestedVariant !== 'default') {
-        let variant = await getLessonVariant(
-          lessonData[0].id,
-          requestedVariant === 'remedial' ? 'simplified' : requestedVariant,
-        );
+      let resolvedVariant: ContentVariantType = requestedVariant;
+
+      if (lessonData[0]) {
+        let variant =
+          requestedVariant !== 'default'
+            ? await getLessonVariant(
+                lessonData[0].id,
+                requestedVariant === 'remedial' ? 'simplified' : requestedVariant,
+              )
+            : await getLessonVariant(lessonData[0].id);
 
         if (!variant) {
+          resolvedVariant = 'default';
+        } else if (requestedVariant === 'default') {
+          resolvedVariant = variant.variant_type;
+        } else {
+          resolvedVariant = requestedVariant;
+        }
+
+        if (!variant && requestedVariant !== 'default') {
+          const normalizedVariant = requestedVariant === 'remedial' ? 'simplified' : requestedVariant;
           variant = {
             user_id: progressData[0]?.user_id ?? 'demo-user',
             lesson_id: lessonData[0].id,
             concept_tag: lessonData[0].concept_tag,
-            variant_type: requestedVariant === 'remedial' ? 'simplified' : requestedVariant,
-            content_json: generateVariantContent(
-              lessonData[0],
-              requestedVariant === 'remedial' ? 'simplified' : requestedVariant,
-              lessonData[0].concept_tag,
-            ),
+            variant_type: normalizedVariant,
+            content_json: generateVariantContent(lessonData[0], normalizedVariant, lessonData[0].concept_tag),
             weak_concepts:
-              requestedVariant === 'simplified' || requestedVariant === 'remedial'
+              normalizedVariant === 'simplified'
                 ? [lessonData[0].concept_tag]
                 : [],
             created_at: new Date().toISOString(),
           };
           await saveLessonVariant(variant);
+          resolvedVariant = requestedVariant;
         }
 
-        lessonData = lessonData.map((lesson) =>
-          lesson.id === variant.lesson_id ? { ...lesson, content_json: variant.content_json } : lesson,
-        );
+        if (variant) {
+          lessonData = lessonData.map((lesson) =>
+            lesson.id === variant.lesson_id ? { ...lesson, content_json: variant.content_json } : lesson,
+          );
+        }
       }
 
       setTopic(topicData);
       setLessons(lessonData);
       setProgress(progressData);
+      setActiveVariant(resolvedVariant);
       setLoading(false);
       if (lessonData[0]) {
         setQuickCheckPassed(await getQuickCheckStatus(lessonData[0].id));
       }
     });
-  }, [requestedVariant, subjectId]);
+  }, [requestedVariant, topicId]);
 
   const lesson = lessons[0];
   const progressItem = useMemo(() => {
@@ -102,7 +117,7 @@ export default function LessonPage() {
       mastery_percent: Math.max(score * 33, progressItem?.mastery_percent ?? 0),
       last_accessed: new Date().toISOString(),
       content_variant:
-        (location.state?.variant as UserProgress['content_variant']) ??
+        ((activeVariant === 'remedial' ? 'simplified' : activeVariant) as UserProgress['content_variant']) ??
         progressItem?.content_variant ??
         'default',
       topic_id: lesson.topic_id,
@@ -207,15 +222,15 @@ export default function LessonPage() {
             <div>
               <Badge
                 variant={
-                  requestedVariant === 'simplified'
+                  activeVariant === 'simplified'
                     ? 'warning'
-                    : requestedVariant === 'accelerated'
+                    : activeVariant === 'accelerated'
                       ? 'indigo'
                       : 'cyan'
                 }
                 className="w-fit"
               >
-                {getVariantBadgeLabel(requestedVariant)}
+                {getVariantBadgeLabel(activeVariant)}
               </Badge>
               <p className="mt-4 max-w-3xl text-base leading-8 text-[#627364]">
                 Topic-based personalization is now applied before the learner starts the next test, so each
@@ -234,7 +249,8 @@ export default function LessonPage() {
 
           {whyOpen && (
             <div className="mt-5 rounded-[24px] border border-[#dcecdc] bg-[#f7fff7] p-4 text-sm leading-7 text-[#536255]">
-              {getVariantWhyMessage(requestedVariant)}
+              {getVariantWhyMessage(activeVariant)}
+              {activeVariant !== requestedVariant && requestedVariant === 'default' ? ' Your last completed test saved this personalized version for future visits.' : ''}
             </div>
           )}
         </Card>

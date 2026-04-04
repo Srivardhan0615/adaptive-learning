@@ -1,13 +1,24 @@
 import type { User } from 'firebase/auth';
 import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+} from 'firebase/firestore';
+import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   updateProfile,
 } from 'firebase/auth';
-import { firebaseAuth, isFirebaseConfigured } from './firebase';
+import { firebaseAuth, firestore, isFirebaseConfigured } from './firebase';
 import type { Chapter, ConceptMastery, ContentVariant, Lesson, Profile, Question, Subject, TestSession, Topic, UserProgress } from '../types';
+import { getPyqQuestions } from './pyqBank';
 import {
   DEMO_USER_ID,
   sampleChapters,
@@ -27,6 +38,39 @@ const VARIANTS_KEY = 'adaptlearn-lesson-variants';
 const MASTERY_KEY = 'adaptlearn-concept-mastery';
 
 export { isFirebaseConfigured };
+
+function logFirebaseFallback(scope: string, error: unknown) {
+  console.warn(`[adaptlearn] Falling back to local storage for ${scope}.`, error);
+}
+
+async function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs = 4000): Promise<T> {
+  return await Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+    }),
+  ]);
+}
+
+function getUserCollection(userId: string, segment: string) {
+  if (!firestore) {
+    return null;
+  }
+
+  return collection(firestore, 'users', userId, segment);
+}
+
+function serializeForFirestore<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function pickLatestVariant(variants: ContentVariant[]) {
+  return [...variants].sort((left, right) => {
+    const leftTime = left.created_at ? new Date(left.created_at).getTime() : 0;
+    const rightTime = right.created_at ? new Date(right.created_at).getTime() : 0;
+    return rightTime - leftTime;
+  })[0] ?? null;
+}
 
 function readSessions(): TestSession[] {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -143,12 +187,29 @@ export async function getCurrentProfile(): Promise<Profile> {
     };
   }
 
-  return {
+  const profile: Profile = {
     ...sampleProfile,
     id: user.uid,
     full_name: user.displayName ?? user.email?.split('@')[0] ?? sampleProfile.full_name,
     email: user.email ?? sampleProfile.email,
   };
+
+  if (firestore) {
+    try {
+      await withTimeout(setDoc(
+        doc(firestore, 'users', user.uid),
+        {
+          ...profile,
+          updated_at: serverTimestamp(),
+        },
+        { merge: true },
+      ), 'profile sync');
+    } catch (error) {
+      logFirebaseFallback('profile sync', error);
+    }
+  }
+
+  return profile;
 }
 
 export async function getSubjects(): Promise<Subject[]> {
@@ -188,6 +249,11 @@ export async function getLessonById(lessonId: string): Promise<Lesson | null> {
 }
 
 export async function getQuestions(topicId?: string): Promise<Question[]> {
+  const pyqQuestions = await getPyqQuestions(topicId);
+  if (pyqQuestions.length) {
+    return pyqQuestions;
+  }
+
   return topicId ? sampleQuestions.filter((question) => question.topic_id === topicId) : sampleQuestions;
 }
 
@@ -197,6 +263,15 @@ export async function getProgress(): Promise<UserProgress[]> {
   if (!isFirebaseConfigured && userId === DEMO_USER_ID) {
     const stored = readProgress();
     return stored.length ? filterByUser(stored, userId) : sampleProgress;
+  }
+
+  if (userId && firestore) {
+    try {
+      const snapshot = await withTimeout(getDocs(getUserCollection(userId, 'progress')!), 'progress read');
+      return snapshot.docs.map((item) => item.data() as UserProgress);
+    } catch (error) {
+      logFirebaseFallback('progress read', error);
+    }
   }
 
   return filterByUser(readProgress(), userId);
@@ -215,6 +290,17 @@ export async function saveProgress(update: UserProgress) {
     next.push(payload);
   }
   writeProgress(next);
+
+  if (isFirebaseConfigured && firestore) {
+    try {
+      await withTimeout(
+        setDoc(doc(firestore, 'users', ownerId, 'progress', payload.lesson_id), serializeForFirestore(payload)),
+        'progress write',
+      );
+    } catch (error) {
+      logFirebaseFallback('progress write', error);
+    }
+  }
 }
 
 export async function getCompletedSessions(): Promise<TestSession[]> {
@@ -226,11 +312,36 @@ export async function getCompletedSessions(): Promise<TestSession[]> {
     return scoped.length ? scoped : sampleSessions.filter((session) => session.user_id === DEMO_USER_ID);
   }
 
+  if (userId && firestore) {
+    try {
+      const snapshot = await withTimeout(
+        getDocs(query(getUserCollection(userId, 'sessions')!, orderBy('started_at', 'desc'))),
+        'session list',
+      );
+      return snapshot.docs
+        .map((item) => item.data() as TestSession)
+        .filter((session) => session.status === 'completed');
+    } catch (error) {
+      logFirebaseFallback('session list', error);
+    }
+  }
+
   return filterByUser(readSessions(), userId).filter((session) => session.status === 'completed');
 }
 
 export async function getSessionById(sessionId: string): Promise<TestSession | null> {
   const userId = await getActiveUserId();
+  if (userId && firestore) {
+    try {
+      const snapshot = await withTimeout(
+        getDoc(doc(firestore, 'users', userId, 'sessions', sessionId)),
+        'session detail',
+      );
+      return snapshot.exists() ? (snapshot.data() as TestSession) : null;
+    } catch (error) {
+      logFirebaseFallback('session detail', error);
+    }
+  }
   return readSessions().find((session) => session.id === sessionId && session.user_id === userId) ?? null;
 }
 
@@ -257,6 +368,18 @@ export async function createTestSession(topicId: string): Promise<TestSession> {
   const sessions = readSessions();
   sessions.unshift(payload);
   writeSessions(sessions);
+
+  if (isFirebaseConfigured && firestore) {
+    try {
+      await withTimeout(
+        setDoc(doc(firestore, 'users', payload.user_id, 'sessions', payload.id), serializeForFirestore(payload)),
+        'session create',
+      );
+    } catch (error) {
+      logFirebaseFallback('session create', error);
+    }
+  }
+
   return payload;
 }
 
@@ -272,15 +395,41 @@ export async function saveCompletedSession(result: TestSession) {
     sessions.unshift(payload);
   }
   writeSessions(sessions);
+
+  if (isFirebaseConfigured && firestore) {
+    try {
+      await withTimeout(
+        setDoc(doc(firestore, 'users', ownerId, 'sessions', payload.id), serializeForFirestore(payload)),
+        'session save',
+      );
+    } catch (error) {
+      logFirebaseFallback('session save', error);
+    }
+  }
 }
 
 export async function getLessonVariant(lessonId: string, variantType?: ContentVariant['variant_type']) {
   const userId = await getActiveUserId();
+  if (userId && firestore) {
+    try {
+      const snapshot = await withTimeout(getDocs(getUserCollection(userId, 'lessonVariants')!), 'lesson variant read');
+      const variants = snapshot.docs
+        .map((item) => item.data() as ContentVariant)
+        .filter((variant) => variant.lesson_id === lessonId);
+      if (variantType) {
+        return pickLatestVariant(variants.filter((variant) => variant.variant_type === variantType));
+      }
+      return pickLatestVariant(variants);
+    } catch (error) {
+      logFirebaseFallback('lesson variant read', error);
+    }
+  }
+
   const variants = readVariants().filter((variant) => variant.lesson_id === lessonId && variant.user_id === userId);
   if (variantType) {
-    return variants.find((variant) => variant.variant_type === variantType) ?? null;
+    return pickLatestVariant(variants.filter((variant) => variant.variant_type === variantType));
   }
-  return variants[0] ?? null;
+  return pickLatestVariant(variants);
 }
 
 export async function saveLessonVariant(variant: ContentVariant) {
@@ -300,6 +449,21 @@ export async function saveLessonVariant(variant: ContentVariant) {
     variants.unshift(payload);
   }
   writeVariants(variants);
+
+  if (isFirebaseConfigured && firestore) {
+    try {
+      await withTimeout(
+        setDoc(
+          doc(firestore, 'users', ownerId, 'lessonVariants', `${payload.lesson_id}__${payload.variant_type}`),
+          serializeForFirestore(payload),
+        ),
+        'lesson variant write',
+      );
+    } catch (error) {
+      logFirebaseFallback('lesson variant write', error);
+    }
+  }
+
   return payload;
 }
 
@@ -323,10 +487,39 @@ export async function saveConceptMastery(records: ConceptMastery[]) {
     }
   });
   writeConceptMastery(current);
+
+  if (isFirebaseConfigured && firestore) {
+    try {
+      await withTimeout(Promise.all(
+        records.map(async (record) => {
+          const payload = { ...record, user_id: record.user_id || ownerId };
+          await setDoc(
+            doc(firestore, 'users', payload.user_id, 'conceptMastery', payload.concept_tag),
+            serializeForFirestore(payload),
+            { merge: true },
+          );
+        }),
+      ), 'concept mastery write');
+    } catch (error) {
+      logFirebaseFallback('concept mastery write', error);
+    }
+  }
 }
 
 export async function getQuickCheckStatus(lessonId: string) {
   const userId = await getActiveUserId();
+  if (userId && firestore) {
+    try {
+      const snapshot = await withTimeout(
+        getDoc(doc(firestore, 'users', userId, 'quickChecks', lessonId)),
+        'quick check read',
+      );
+      return Boolean(snapshot.exists() && snapshot.data().passed);
+    } catch (error) {
+      logFirebaseFallback('quick check read', error);
+    }
+  }
+
   const raw = localStorage.getItem(QUICK_CHECK_KEY);
   const data = raw ? (JSON.parse(raw) as Record<string, Record<string, boolean>>) : {};
   return Boolean(data[userId ?? DEMO_USER_ID]?.[lessonId]);
@@ -342,4 +535,19 @@ export async function setQuickCheckStatus(lessonId: string, passed: boolean) {
     [lessonId]: passed,
   };
   localStorage.setItem(QUICK_CHECK_KEY, JSON.stringify(data));
+
+  if (isFirebaseConfigured && firestore) {
+    try {
+      await withTimeout(
+        setDoc(doc(firestore, 'users', ownerId, 'quickChecks', lessonId), {
+          lesson_id: lessonId,
+          passed,
+          updated_at: new Date().toISOString(),
+        }),
+        'quick check write',
+      );
+    } catch (error) {
+      logFirebaseFallback('quick check write', error);
+    }
+  }
 }

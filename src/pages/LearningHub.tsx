@@ -13,13 +13,38 @@ export default function LearningHub() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [progress, setProgress] = useState<UserProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([getSubjects(), getProgress()]).then(([subjectData, progressData]) => {
-      setSubjects(subjectData);
-      setProgress(progressData);
-      setLoading(false);
-    });
+    let isMounted = true;
+
+    async function loadHub() {
+      try {
+        const [subjectData, progressData] = await Promise.all([getSubjects(), getProgress()]);
+        if (!isMounted) {
+          return;
+        }
+        setSubjects(subjectData);
+        setProgress(progressData);
+        setLoadError(null);
+      } catch (error) {
+        console.warn('[adaptlearn] Learning hub failed to load cleanly.', error);
+        if (!isMounted) {
+          return;
+        }
+        setLoadError('Some live progress data could not be loaded. Showing available content.');
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadHub();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const progressBySubject = useMemo(
@@ -67,6 +92,12 @@ export default function LearningHub() {
           </div>
         </div>
       </Card>
+
+      {loadError && (
+        <Card className="border-[#f0d8a8] bg-[#fff8e7] py-4">
+          <p className="text-sm text-[#7b5f18]">{loadError}</p>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">

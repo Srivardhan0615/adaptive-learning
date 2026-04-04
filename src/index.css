@@ -101,6 +101,23 @@ body {
 }
 
 @layer components {
+  .math-text {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .math-text .katex-display {
+    margin: 0.75rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.15rem;
+  }
+
+  .math-text .katex {
+    font-size: 1em;
+    color: inherit;
+  }
+
   .app-shell {
     position: relative;
     min-height: 100vh;

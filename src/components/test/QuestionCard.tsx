@@ -2,6 +2,7 @@ import type { Question } from '../../types';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import MathText from '../ui/MathText';
 
 export default function QuestionCard({
   question,
@@ -23,15 +24,27 @@ export default function QuestionCard({
   isCorrect: boolean;
 }) {
   const difficultyTone = question.difficulty <= 2 ? 'success' : question.difficulty >= 4 ? 'error' : 'warning';
+  const examLabel =
+    question.exam_name && question.exam_year
+      ? `${question.exam_name === 'JEE Main' ? 'JEE MAINS' : 'JEE ADVANCED'}(${question.exam_year})`
+      : null;
 
   return (
     <Card className={showResult ? (isCorrect ? 'animate-[pulse-correct_0.8s_ease-out]' : 'animate-[shake-wrong_0.5s_ease-in-out]') : ''}>
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <p className="text-sm uppercase tracking-[0.24em] text-[#748476]">Question {index + 1} of {total}</p>
-          <h2 className="mt-3 text-2xl font-semibold leading-snug text-[#172519]">{question.question_text}</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {examLabel ? (
+              <Badge variant="indigo">{examLabel}</Badge>
+            ) : null}
+            <Badge variant={difficultyTone}>Difficulty {question.difficulty}</Badge>
+          </div>
+          <MathText
+            value={question.question_text}
+            className="mt-3 text-2xl font-semibold leading-snug text-[#172519]"
+          />
         </div>
-        <Badge variant={difficultyTone}>Difficulty {question.difficulty}</Badge>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
@@ -55,7 +68,7 @@ export default function QuestionCard({
                 wrong ? 'border-[#e57d7d] bg-[#fff1f1] text-[#8c3030]' : '',
               ].join(' ')}
             >
-              {option}
+              <MathText value={option} className="text-sm font-medium leading-7" />
             </button>
           );
         })}
@@ -63,7 +76,7 @@ export default function QuestionCard({
 
       {showResult ? (
         <div className="mt-6 rounded-[24px] border border-[#dcecdc] bg-[#f8fff8] p-4 text-sm leading-7 text-[#536255]">
-          {question.explanation}
+          <MathText value={question.explanation} className="text-sm leading-7 text-[#536255]" />
         </div>
       ) : (
         <Button className="mt-6 w-full" size="lg" disabled={selected === null} onClick={onSubmit}>

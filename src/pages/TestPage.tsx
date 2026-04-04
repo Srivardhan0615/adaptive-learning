@@ -15,10 +15,11 @@ import {
   generateAdaptiveLessonVariant,
 } from '../lib/adaptiveContent';
 import { AdaptiveEngine } from '../lib/adaptiveAlgorithm';
-import { getLessons, getQuestions, saveCompletedSession, saveConceptMastery, saveLessonVariant } from '../lib/supabase';
+import { getCompletedSessions, getLessons, getQuestions, saveCompletedSession, saveConceptMastery, saveLessonVariant } from '../lib/supabase';
 import { percent } from '../lib/utils';
 import type { AnswerRecord, Question, TestSession } from '../types';
 
+const MIN_TOTAL_QUESTIONS = 10;
 const MAX_TOTAL_QUESTIONS = 10;
 
 function chooseNextQuestion(questions: Question[], usedIds: string[], difficulty: number) {
@@ -30,6 +31,83 @@ function chooseNextQuestion(questions: Question[], usedIds: string[], difficulty
     (question) => Math.abs(question.difficulty - difficulty) <= 1 && !usedIds.includes(question.id),
   );
   return nearby ?? questions.find((question) => !usedIds.includes(question.id)) ?? null;
+}
+
+function seededShuffle<T>(items: T[], seed: string) {
+  const copy = [...items];
+  let state = seed.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) || 1;
+
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    state = (state * 1664525 + 1013904223) % 4294967296;
+    const swapIndex = state % (index + 1);
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+
+  return copy;
+}
+
+function normalizeQuestionText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function uniqueQuestions(questions: Question[]) {
+  const seen = new Set<string>();
+  return questions.filter((question) => {
+    const key = normalizeQuestionText(question.question_text);
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function getQuestionPriority(question: Question) {
+  const examPriority = question.exam_name === 'JEE Advanced' ? 3 : question.exam_name === 'JEE Main' ? 2 : 0;
+  const pyqPriority = question.source === 'pyq' ? 2 : 0;
+  const difficultyPriority = question.difficulty >= 4 ? 2 : question.difficulty >= 3 ? 1 : 0;
+  return examPriority * 100 + pyqPriority * 10 + difficultyPriority;
+}
+
+function buildQuestionPaper(questions: Question[], completedSessions: TestSession[], topicId: string, sessionId: string) {
+  const topicSessions = completedSessions
+    .filter((session) => session.topic_id === topicId)
+    .sort((left, right) => {
+      const leftTime = left.completed_at ? new Date(left.completed_at).getTime() : 0;
+      const rightTime = right.completed_at ? new Date(right.completed_at).getTime() : 0;
+      return rightTime - leftTime;
+    });
+
+  const sortedQuestions = uniqueQuestions(
+    [...questions].sort((left, right) => {
+      const priorityDelta = getQuestionPriority(right) - getQuestionPriority(left);
+      if (priorityDelta !== 0) {
+        return priorityDelta;
+      }
+
+      const difficultyDelta = right.difficulty - left.difficulty;
+      if (difficultyDelta !== 0) {
+        return difficultyDelta;
+      }
+
+      return (right.exam_year ?? 0) - (left.exam_year ?? 0) || left.id.localeCompare(right.id);
+    }),
+  );
+
+  const usedQuestionIds = new Set(topicSessions.flatMap((session) => session.answers.map((answer) => answer.question_id)));
+  let pool = sortedQuestions.filter((question) => !usedQuestionIds.has(question.id));
+
+  if (pool.length < MIN_TOTAL_QUESTIONS) {
+    const lastSessionIds = new Set(topicSessions[0]?.answers.map((answer) => answer.question_id) ?? []);
+    pool = sortedQuestions.filter((question) => !lastSessionIds.has(question.id));
+  }
+
+  if (pool.length < MIN_TOTAL_QUESTIONS) {
+    pool = sortedQuestions;
+  }
+
+  const shuffledPool = seededShuffle(pool, `${topicId}-${sessionId}-${topicSessions.length}`);
+  return shuffledPool.slice(0, Math.min(MAX_TOTAL_QUESTIONS, shuffledPool.length));
 }
 
 export default function TestPage() {
@@ -55,7 +133,12 @@ export default function TestPage() {
   const chapterId = (location.state?.chapterId as string | undefined) ?? 'chapter-math-algebra';
   const topicId = (location.state?.topicId as string | undefined) ?? 'topic-linear-equations';
   const userId = (location.state?.userId as string | undefined) ?? 'demo-user';
-  const totalQuestions = useMemo(() => Math.min(MAX_TOTAL_QUESTIONS, questions.length || MAX_TOTAL_QUESTIONS), [questions]);
+  const totalQuestions = useMemo(() => {
+    if (questions.length === 0) {
+      return 0;
+    }
+    return Math.min(MAX_TOTAL_QUESTIONS, questions.length);
+  }, [questions]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -70,14 +153,29 @@ export default function TestPage() {
   }, [answers.length, totalQuestions]);
 
   useEffect(() => {
-    getQuestions(topicId).then((questionData) => {
-      setQuestions(questionData);
-      const firstQuestion = chooseNextQuestion(questionData, [], 3);
+    let isMounted = true;
+
+    async function loadPaper() {
+      const [questionData, completedSessions] = await Promise.all([getQuestions(topicId), getCompletedSessions()]);
+      const paper = buildQuestionPaper(questionData, completedSessions, topicId, sessionId);
+
+      if (!isMounted) {
+        return;
+      }
+
+      setQuestions(paper);
+      const firstQuestion = chooseNextQuestion(paper, [], 3);
       setSequence(firstQuestion ? [firstQuestion] : []);
       setLoading(false);
       setQuestionStartedAt(Date.now());
-    });
-  }, [topicId]);
+    }
+
+    void loadPaper();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [sessionId, topicId]);
 
   const currentQuestion = sequence[answers.length];
   const currentScore = useMemo(

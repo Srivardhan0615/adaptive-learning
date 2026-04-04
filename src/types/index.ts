@@ -57,6 +57,11 @@ export interface Question {
   difficulty: number;
   explanation: string;
   subject_id: string;
+  exam_name?: 'JEE Main' | 'JEE Advanced';
+  exam_year?: number;
+  paper_id?: string;
+  paper_title?: string;
+  source?: 'pyq' | 'generated';
 }
 
 export interface AnswerRecord {
