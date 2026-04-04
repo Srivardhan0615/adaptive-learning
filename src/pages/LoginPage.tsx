@@ -72,8 +72,8 @@ export default function LoginPage({ isAuthenticated }: LoginPageProps) {
     <div className="app-shell flex min-h-screen items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(251,191,36,0.1),transparent_24%)]" />
 
-      <div className="relative z-10 grid w-full max-w-6xl gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8">
-        <section className="rounded-[28px] border border-white/10 bg-[#0b1224]/85 p-6 shadow-[0_30px_90px_-30px_rgba(0,0,0,0.72)] backdrop-blur-xl sm:p-8 md:rounded-[32px] md:p-10">
+      <div className="relative z-10 grid w-full max-w-6xl gap-4 sm:gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8">
+        <section className="hidden rounded-[28px] border border-white/10 bg-[#0b1224]/85 p-6 shadow-[0_30px_90px_-30px_rgba(0,0,0,0.72)] backdrop-blur-xl sm:p-8 md:rounded-[32px] md:p-10 lg:block">
           <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-300">
             <BookOpenCheck className="h-4 w-4" />
             Adaptive Learning Portal
@@ -106,15 +106,25 @@ export default function LoginPage({ isAuthenticated }: LoginPageProps) {
           </div>
         </section>
 
-        <Card className="border-[#dcecdc] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,255,247,0.98)_100%)] p-6 sm:p-8 md:p-10">
-          <div className="mb-6 flex w-full flex-col rounded-[22px] border border-[#d8ead9] bg-[#f6fff5] p-1 sm:inline-flex sm:w-auto sm:flex-row sm:rounded-full">
+        <Card className="border-[#dcecdc] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,255,247,0.98)_100%)] p-4 sm:p-8 md:p-10">
+          <div className="mb-5 flex items-center gap-2 lg:hidden">
+            <div className="rounded-2xl bg-gradient-to-br from-[#32c751] to-[#74dd58] p-2.5 text-white shadow-[0_18px_30px_-16px_rgba(47,180,75,0.45)]">
+              <BookOpenCheck className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="text-base font-bold text-[#172519]">AdaptLearn</div>
+              <div className="text-xs text-[#7a8a7d]">Personalized practice, made simple</div>
+            </div>
+          </div>
+
+          <div className="mb-6 flex w-full flex-col rounded-[20px] border border-[#d8ead9] bg-[#f6fff5] p-1 sm:inline-flex sm:w-auto sm:flex-row sm:rounded-full">
             <button
               type="button"
               onClick={() => {
                 setMode('login');
                 setError(null);
               }}
-              className={`rounded-[18px] px-4 py-2 text-sm font-semibold transition sm:rounded-full ${
+              className={`rounded-[16px] px-4 py-2.5 text-sm font-semibold transition sm:rounded-full ${
                 mode === 'login' ? 'bg-[#2fc84f] text-white shadow-[0_12px_24px_rgba(47,200,79,0.22)]' : 'text-[#5d6e5f]'
               }`}
             >
@@ -126,7 +136,7 @@ export default function LoginPage({ isAuthenticated }: LoginPageProps) {
                 setMode('signup');
                 setError(null);
               }}
-              className={`rounded-[18px] px-4 py-2 text-sm font-semibold transition sm:rounded-full ${
+              className={`rounded-[16px] px-4 py-2.5 text-sm font-semibold transition sm:rounded-full ${
                 mode === 'signup' ? 'bg-[#2fc84f] text-white shadow-[0_12px_24px_rgba(47,200,79,0.22)]' : 'text-[#5d6e5f]'
               }`}
             >
@@ -136,17 +146,17 @@ export default function LoginPage({ isAuthenticated }: LoginPageProps) {
 
           <div className="space-y-2">
             <p className="section-label">{mode === 'signup' ? 'Create Account' : 'Login'}</p>
-            <h2 className="text-3xl font-bold text-[#172519]">
+            <h2 className="text-2xl font-bold text-[#172519] sm:text-3xl">
               {mode === 'signup' ? 'Join AdaptLearn' : 'Welcome back'}
             </h2>
-            <p className="text-[#627364]">
+            <p className="text-sm leading-6 text-[#627364] sm:text-base sm:leading-7">
               {mode === 'signup'
-                ? 'Set up your account to save progress, chapter mastery, and adaptive test reports.'
-                : 'Use your email and password to access your learning dashboard.'}
+                ? 'Create your account to save progress and personalized reports.'
+                : 'Sign in to continue your learning path.'}
             </p>
           </div>
 
-          <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+          <form className="mt-6 space-y-4 sm:mt-8 sm:space-y-5" onSubmit={handleSubmit}>
             {mode === 'signup' ? (
               <label className="block space-y-2">
                 <span className="text-sm font-medium text-[#435245]">Full name</span>
@@ -217,7 +227,7 @@ export default function LoginPage({ isAuthenticated }: LoginPageProps) {
             </Button>
           </form>
 
-          <p className="mt-6 text-sm leading-7 text-[#6f7d71]">
+          <p className="mt-5 text-sm leading-6 text-[#6f7d71] sm:mt-6 sm:leading-7">
             {mode === 'signup' ? (
               <>
                 Already have an account?{' '}
@@ -249,7 +259,9 @@ export default function LoginPage({ isAuthenticated }: LoginPageProps) {
                 <span className="mx-2">|</span>
               </>
             )}
-            Need a different route? <Link to="/" className="text-[#18a9d8] transition hover:text-[#0d83ab]">Return to the app</Link>
+            <span className="hidden sm:inline">
+              Need a different route? <Link to="/" className="text-[#18a9d8] transition hover:text-[#0d83ab]">Return to the app</Link>
+            </span>
           </p>
         </Card>
       </div>
