@@ -204,6 +204,10 @@ export default function TestPage() {
   async function finishSession(completedAnswers: AnswerRecord[]) {
     const conceptBreakdown = analyzeConceptPerformance(completedAnswers);
     const { strongConcepts, weakConcepts } = categorizeConcepts(conceptBreakdown);
+    const finalScore = percent(
+      completedAnswers.filter((answer) => answer.correct).length,
+      completedAnswers.length,
+    );
 
     const result: TestSession = {
       id: sessionId,
@@ -214,10 +218,7 @@ export default function TestPage() {
       started_at: new Date(Date.now() - completedAnswers.length * 30000).toISOString(),
       completed_at: new Date().toISOString(),
       answers: completedAnswers,
-      final_score: percent(
-        completedAnswers.filter((answer) => answer.correct).length,
-        completedAnswers.length,
-      ),
+      final_score: finalScore,
       ability_estimate: Math.round(engineRef.current.abilityScore),
       weak_concepts: weakConcepts,
       strong_concepts: strongConcepts,
@@ -228,8 +229,9 @@ export default function TestPage() {
     const lessons = await getLessons(topicId);
     const lesson = lessons[0];
     if (lesson) {
-      const variant = generateAdaptiveLessonVariant(lesson, weakConcepts, strongConcepts);
+      const variant = generateAdaptiveLessonVariant(lesson, conceptBreakdown, finalScore, weakConcepts, strongConcepts);
       await saveLessonVariant({ ...variant, user_id: result.user_id });
+      result.study_plan = variant.study_plan;
     }
 
     await saveConceptMastery(buildConceptMasteryRecords(userId, conceptBreakdown));
@@ -296,23 +298,23 @@ export default function TestPage() {
   return (
     <div className="space-y-6">
       {difficultyToast && (
-        <div className="fixed left-1/2 top-28 z-50 -translate-x-1/2 rounded-full border border-[#cdebd3] bg-white/95 px-5 py-3 text-sm font-semibold text-[#18a9d8] shadow-[0_20px_40px_rgba(58,120,65,0.18)] backdrop-blur-xl">
+        <div className="fixed left-1/2 top-24 z-50 w-[calc(100%-1.5rem)] max-w-sm -translate-x-1/2 rounded-3xl border border-[#cdebd3] bg-white/95 px-4 py-3 text-center text-sm font-semibold text-[#18a9d8] shadow-[0_20px_40px_rgba(58,120,65,0.18)] backdrop-blur-xl sm:top-28 sm:w-auto sm:max-w-none sm:rounded-full sm:px-5">
           {difficultyToast}
         </div>
       )}
 
-      <Card className="sticky top-24 z-20 space-y-5">
+      <Card className="sticky top-20 z-20 space-y-4 sm:top-24 sm:space-y-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-4">
-            <Button variant="outline" onClick={handleLeave}>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+            <Button variant="outline" onClick={handleLeave} className="w-full sm:w-auto">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Exit Test
             </Button>
             <Badge variant="cyan">Question {answers.length + 1} of {totalQuestions}</Badge>
             <Badge variant="indigo">Score {currentScore}%</Badge>
           </div>
-          <div className="flex items-center gap-5">
-            <div className="text-right">
+          <div className="flex items-center justify-between gap-4 sm:justify-end sm:gap-5">
+            <div className="text-left sm:text-right">
               <div className="text-xs uppercase tracking-[0.2em] text-[#748476]">Ability</div>
               <div className="text-2xl font-bold text-[#172519]">{Math.round(engineRef.current.abilityScore)}</div>
             </div>
@@ -331,7 +333,7 @@ export default function TestPage() {
         <TestProgressBar current={answers.length} total={totalQuestions} />
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <QuestionCard
           question={currentQuestion}
           index={answers.length}
@@ -343,7 +345,7 @@ export default function TestPage() {
           isCorrect={selected === currentQuestion.correct_answer}
         />
 
-        <div className="space-y-6">
+        <div className="order-first space-y-4 sm:space-y-6 lg:order-last">
           <Card>
             <div className="flex items-center gap-3">
               <div className="rounded-2xl bg-[#edf2ff] p-3">

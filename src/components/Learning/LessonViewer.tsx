@@ -1,6 +1,6 @@
 import { BookOpen, CheckCircle2, Lightbulb, Lock, Rocket, Sparkles, Target } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { Lesson, UserProgress } from '../../types';
+import type { Lesson, PersonalizedStudyPlan, UserProgress } from '../../types';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -18,12 +18,14 @@ function adaptExplanation(explanation: string, variant: UserProgress['content_va
 export default function LessonViewer({
   lesson,
   progress,
+  studyPlan,
   onQuickCheckComplete,
   quickCheckPassed,
   onStartTest,
 }: {
   lesson: Lesson;
   progress?: UserProgress;
+  studyPlan?: PersonalizedStudyPlan;
   onQuickCheckComplete: (passed: boolean, score: number) => void;
   quickCheckPassed: boolean;
   onStartTest: () => void;
@@ -59,23 +61,53 @@ export default function LessonViewer({
               {variant === 'simplified' ? 'Personalized Support Lesson' : variant === 'accelerated' ? 'Accelerated Lesson' : 'Standard Lesson'}
             </Badge>
             <div>
-              <h1 className="text-3xl font-bold text-[#172519] md:text-4xl">{lesson.title}</h1>
-              <p className="mt-3 max-w-3xl text-lg leading-8 text-[#627364]">{lesson.content_json.big_idea}</p>
+              <h1 className="text-2xl font-bold text-[#172519] sm:text-3xl md:text-4xl">{lesson.title}</h1>
+              <p className="mt-3 max-w-3xl text-base leading-7 text-[#627364] sm:text-lg sm:leading-8">{lesson.content_json.big_idea}</p>
             </div>
           </div>
-          <div className="rounded-[24px] border border-[#d9ead9] bg-[#f7fff7] px-5 py-4 text-right shadow-[0_16px_36px_rgba(58,120,65,0.08)]">
+          <div className="rounded-[24px] border border-[#d9ead9] bg-[#f7fff7] px-4 py-4 text-left shadow-[0_16px_36px_rgba(58,120,65,0.08)] sm:px-5 md:text-right">
             <div className="text-sm text-[#738374]">Quick check status</div>
             <div className="mt-2 text-2xl font-bold text-[#172519]">{quickCheckPassed ? 'Unlocked' : 'Locked'}</div>
           </div>
         </div>
       </Card>
 
+      {studyPlan ? (
+        <Card className="border-[#d8ebf5] bg-gradient-to-br from-[#eef9ff] via-white to-[#f3fff1]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="mb-3 flex items-center gap-3 text-[#29c1ef]">
+                <Sparkles className="h-5 w-5" />
+                <span className="section-label">Score Boost Plan</span>
+              </div>
+              <h2 className="text-2xl font-bold leading-tight text-[#172519] sm:text-3xl">{studyPlan.headline}</h2>
+              <p className="mt-3 text-sm leading-7 text-[#536255] sm:text-base">
+                {studyPlan.summary}
+              </p>
+            </div>
+            <div className="rounded-[24px] border border-[#d6ebf3] bg-white/90 px-4 py-4 text-left lg:min-w-[220px] lg:text-right">
+              <div className="text-xs uppercase tracking-[0.2em] text-[#78908d]">Projected Gain</div>
+              <div className="mt-2 text-4xl font-bold text-[#10a8d7]">+{studyPlan.projected_score_gain}%</div>
+              <div className="mt-2 text-sm text-[#627364]">Target around {studyPlan.target_score}% next time</div>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {studyPlan.action_steps.map((step) => (
+              <div key={step} className="rounded-[22px] border border-[#dcecdc] bg-white/90 px-4 py-3 text-sm leading-7 text-[#536255]">
+                {step}
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
+
       <Card>
         <div className="mb-4 flex items-center gap-3 text-[#29c1ef]">
           <Lightbulb className="h-5 w-5" />
           <span className="section-label">Big Idea</span>
         </div>
-        <h2 className="text-3xl font-bold leading-tight text-[#172519]">{lesson.content_json.big_idea}</h2>
+        <h2 className="text-2xl font-bold leading-tight text-[#172519] sm:text-3xl">{lesson.content_json.big_idea}</h2>
       </Card>
 
       <Card>
@@ -83,7 +115,7 @@ export default function LessonViewer({
           <BookOpen className="h-5 w-5" />
           <span className="section-label">Explanation</span>
         </div>
-        <div className="whitespace-pre-wrap text-base leading-8 text-[#4e5f51]">
+        <div className="whitespace-pre-wrap text-sm leading-7 text-[#4e5f51] sm:text-base sm:leading-8">
           {adaptExplanation(lesson.content_json.explanation, variant)}
         </div>
       </Card>
@@ -93,7 +125,7 @@ export default function LessonViewer({
           <Sparkles className="h-5 w-5" />
           <span className="section-label">Worked Example</span>
         </div>
-        <div className="whitespace-pre-wrap text-base leading-8 text-[#435445]">{lesson.content_json.worked_example}</div>
+        <div className="whitespace-pre-wrap text-sm leading-7 text-[#435445] sm:text-base sm:leading-8">{lesson.content_json.worked_example}</div>
       </Card>
 
       <Card>
@@ -127,7 +159,7 @@ export default function LessonViewer({
               <Target className="h-5 w-5" />
               <span className="section-label">Quick Check Gate</span>
             </div>
-            <h3 className="text-2xl font-semibold text-[#172519]">Answer 2 of 3 correctly to unlock the adaptive test</h3>
+            <h3 className="text-xl font-semibold text-[#172519] sm:text-2xl">Answer 2 of 3 correctly to unlock the adaptive test</h3>
             <p className="mt-2 text-sm leading-7 text-[#627364]">
               The test stays locked until the learner shows enough understanding to move into adaptive assessment.
             </p>
@@ -140,7 +172,7 @@ export default function LessonViewer({
         <div className="space-y-4">
           {lesson.content_json.quick_check.map((item, questionIndex) => (
             <div key={item.question} className="rounded-[24px] border border-[#dcecdc] bg-[#fbfffb] p-5">
-              <div className="mb-4 text-base font-semibold leading-7 text-[#172519]">{item.question}</div>
+              <div className="mb-4 text-sm font-semibold leading-7 text-[#172519] sm:text-base">{item.question}</div>
               <div className="grid gap-3 md:grid-cols-2">
                 {item.options.map((option, optionIndex) => {
                   const selected = answers[questionIndex] === optionIndex;

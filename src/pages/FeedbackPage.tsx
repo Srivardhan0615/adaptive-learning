@@ -42,6 +42,7 @@ export default function FeedbackPage() {
   const { strongConcepts, weakConcepts } = categorizeConcepts(conceptBreakdown);
   const strongItems = conceptBreakdown.filter((concept) => strongConcepts.includes(concept.tag));
   const weakItems = conceptBreakdown.filter((concept) => weakConcepts.includes(concept.tag));
+  const studyPlan = session.study_plan;
 
   return (
     <div className="space-y-6">
@@ -54,23 +55,49 @@ export default function FeedbackPage() {
               Results Ready
             </Badge>
             <div>
-              <h1 className="text-3xl font-bold leading-tight text-[#172519] md:text-4xl">
+              <h1 className="text-2xl font-bold leading-tight text-[#172519] sm:text-3xl md:text-4xl">
                 You performed at {describeAbility(session.ability_estimate)} level
               </h1>
-              <p className="mt-3 text-lg text-[#627364]">
+              <p className="mt-3 text-base text-[#627364] sm:text-lg">
                 Completed on {formatDate(session.completed_at ?? session.started_at)} in {elapsedMinutes} minutes.
               </p>
             </div>
           </div>
 
-          <div className="flex h-44 w-44 items-center justify-center rounded-full border-[12px] border-[#29c1ef]/25 bg-[#253048] text-center shadow-[0_18px_44px_rgba(41,193,239,0.18)]">
+          <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-full border-[10px] border-[#29c1ef]/25 bg-[#253048] text-center shadow-[0_18px_44px_rgba(41,193,239,0.18)] sm:h-40 sm:w-40 md:h-44 md:w-44 md:border-[12px]">
             <div>
-              <div className="text-5xl font-bold text-white">{session.final_score}%</div>
+              <div className="text-4xl font-bold text-white sm:text-5xl">{session.final_score}%</div>
               <div className="mt-2 text-sm text-[#b8c6d7]">Score</div>
             </div>
           </div>
         </div>
       </Card>
+
+      {studyPlan ? (
+        <Card className="border-[#d7edf6] bg-gradient-to-br from-[#eef8ff] to-[#f7fff1]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="section-label">Personalized Recommendation</p>
+              <h2 className="mt-3 text-xl font-semibold text-[#172519] sm:text-2xl">{studyPlan.headline}</h2>
+              <p className="mt-3 text-sm leading-7 text-[#5d6d61] sm:text-base">
+                {studyPlan.summary}
+              </p>
+            </div>
+            <div className="rounded-[24px] border border-[#d2eaf3] bg-white/90 px-4 py-4 text-left lg:min-w-[220px] lg:text-right">
+              <div className="text-xs uppercase tracking-[0.2em] text-[#7d8d83]">Possible Lift</div>
+              <div className="mt-2 text-4xl font-bold text-[#10a8d7]">+{studyPlan.projected_score_gain}%</div>
+              <div className="mt-2 text-sm text-[#627364]">Target score {studyPlan.target_score}%</div>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {studyPlan.action_steps.map((step) => (
+              <div key={step} className="rounded-[22px] border border-[#dcecdc] bg-white/90 px-4 py-3 text-sm leading-7 text-[#536255]">
+                {step}
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -110,7 +137,7 @@ export default function FeedbackPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 md:gap-6">
         <Card className="card-hover cursor-pointer" onClick={() => navigate(-1)}>
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -140,7 +167,7 @@ export default function FeedbackPage() {
         <Link
           to={`/learn/${session.subject_id}/chapters/${session.chapter_id}/topics/${session.topic_id}`}
           state={{
-            variant: weakItems.length ? 'simplified' : strongItems.length ? 'accelerated' : 'default',
+            variant: studyPlan?.variant_type ?? (weakItems.length ? 'simplified' : strongItems.length ? 'accelerated' : 'default'),
           }}
         >
           <Card className="card-hover h-full cursor-pointer border-[#cfe9f3] bg-gradient-to-br from-[#eafaff] to-[#f2ffef]">
@@ -148,9 +175,11 @@ export default function FeedbackPage() {
               <div>
                 <h3 className="text-xl font-semibold text-[#172519]">Continue to adapted lesson</h3>
                 <p className="mt-2 text-sm leading-7 text-[#627364]">
-                  {weakItems.length
-                    ? `A personalized support lesson is ready for ${weakItems.map((concept) => concept.tag.replace(/_/g, ' ')).join(', ')}.`
-                    : 'You are ready for an accelerated version of the lesson with less repetition and more challenge.'}
+                  {studyPlan
+                    ? `A personalized lesson is ready for ${studyPlan.focus_concepts.map((concept) => concept.replace(/_/g, ' ')).join(', ')} with a target gain of about ${studyPlan.projected_score_gain}%.`
+                    : weakItems.length
+                      ? `A personalized support lesson is ready for ${weakItems.map((concept) => concept.tag.replace(/_/g, ' ')).join(', ')}.`
+                      : 'You are ready for an accelerated version of the lesson with less repetition and more challenge.'}
                 </p>
               </div>
               <ArrowRight className="h-5 w-5 text-[#29c1ef]" />
@@ -163,7 +192,7 @@ export default function FeedbackPage() {
         <Link
           to={`/learn/${session.subject_id}/chapters/${session.chapter_id}/topics/${session.topic_id}`}
           state={{
-            variant: weakItems.length ? 'simplified' : strongItems.length ? 'accelerated' : 'default',
+            variant: studyPlan?.variant_type ?? (weakItems.length ? 'simplified' : strongItems.length ? 'accelerated' : 'default'),
           }}
         >
           <Button size="lg">

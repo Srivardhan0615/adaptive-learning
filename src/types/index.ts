@@ -9,6 +9,16 @@ export interface LessonContent {
 
 export type ContentVariantType = 'default' | 'simplified' | 'accelerated' | 'remedial';
 
+export interface PersonalizedStudyPlan {
+  variant_type: 'default' | 'simplified' | 'accelerated';
+  headline: string;
+  summary: string;
+  focus_concepts: string[];
+  action_steps: string[];
+  projected_score_gain: number;
+  target_score: number;
+}
+
 export interface Chapter {
   id: string;
   subject_id: string;
@@ -87,6 +97,7 @@ export interface TestSession {
   weak_concepts: string[];
   strong_concepts: string[];
   concept_breakdown?: ConceptPerformance[];
+  study_plan?: PersonalizedStudyPlan;
   status: 'in_progress' | 'completed';
 }
 
@@ -141,6 +152,7 @@ export interface ContentVariant {
   concept_tag: string;
   content_json: LessonContent;
   weak_concepts: string[];
+  study_plan?: PersonalizedStudyPlan;
   created_at?: string;
 }
 

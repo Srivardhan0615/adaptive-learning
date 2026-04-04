@@ -31,9 +31,9 @@ export default function QuestionCard({
 
   return (
     <Card className={showResult ? (isCorrect ? 'animate-[pulse-correct_0.8s_ease-out]' : 'animate-[shake-wrong_0.5s_ease-in-out]') : ''}>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-5 flex items-start justify-between gap-4 sm:mb-6">
         <div>
-          <p className="text-sm uppercase tracking-[0.24em] text-[#748476]">Question {index + 1} of {total}</p>
+          <p className="text-xs uppercase tracking-[0.24em] text-[#748476] sm:text-sm">Question {index + 1} of {total}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {examLabel ? (
               <Badge variant="indigo">{examLabel}</Badge>
@@ -42,7 +42,7 @@ export default function QuestionCard({
           </div>
           <MathText
             value={question.question_text}
-            className="mt-3 text-2xl font-semibold leading-snug text-[#172519]"
+            className="mt-3 text-lg font-semibold leading-8 text-[#172519] sm:text-xl md:text-2xl"
           />
         </div>
       </div>
@@ -60,7 +60,7 @@ export default function QuestionCard({
               disabled={showResult}
               onClick={() => onSelect(optionIndex)}
               className={[
-                'w-full rounded-2xl border px-4 py-4 text-left text-sm font-medium transition-all duration-200',
+                'w-full rounded-2xl border px-4 py-3.5 text-left text-sm font-medium transition-all duration-200 sm:px-4 sm:py-4',
                 active
                   ? 'border-[#2fc84f] bg-[#effbf0] text-[#172519] shadow-[0_16px_28px_rgba(47,200,79,0.12)]'
                   : 'border-[#d8ead9] bg-white text-[#435445] hover:border-[#bee6c4] hover:bg-[#f7fff7]',
