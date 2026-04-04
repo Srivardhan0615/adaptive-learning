@@ -1,7 +1,7 @@
 import { ArrowRight, CheckCircle2, CircleHelp, Sparkles, Target } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import LessonViewer from '../components/learning/LessonViewer';
+import LessonViewer from '../components/Learning/LessonViewer';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';

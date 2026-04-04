@@ -1,7 +1,7 @@
 import { ArrowRight, FileSearch, RotateCcw, Sparkles, Target, Trophy } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import ConceptCard from '../components/learning/ConceptCard';
+import ConceptCard from '../components/Learning/ConceptCard';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
