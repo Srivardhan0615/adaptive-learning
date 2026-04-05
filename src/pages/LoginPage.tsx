@@ -117,33 +117,6 @@ export default function LoginPage({ isAuthenticated }: LoginPageProps) {
             </div>
           </div>
 
-          <div className="mb-6 flex w-full flex-col rounded-[20px] border border-[#d8ead9] bg-[#f6fff5] p-1 sm:inline-flex sm:w-auto sm:flex-row sm:rounded-full">
-            <button
-              type="button"
-              onClick={() => {
-                setMode('login');
-                setError(null);
-              }}
-              className={`rounded-[16px] px-4 py-2.5 text-sm font-semibold transition sm:rounded-full ${
-                mode === 'login' ? 'bg-[#2fc84f] text-white shadow-[0_12px_24px_rgba(47,200,79,0.22)]' : 'text-[#5d6e5f]'
-              }`}
-            >
-              Sign in
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMode('signup');
-                setError(null);
-              }}
-              className={`rounded-[16px] px-4 py-2.5 text-sm font-semibold transition sm:rounded-full ${
-                mode === 'signup' ? 'bg-[#2fc84f] text-white shadow-[0_12px_24px_rgba(47,200,79,0.22)]' : 'text-[#5d6e5f]'
-              }`}
-            >
-              Create account
-            </button>
-          </div>
-
           <div className="space-y-2">
             <p className="section-label">{mode === 'signup' ? 'Create Account' : 'Login'}</p>
             <h2 className="text-2xl font-bold text-[#172519] sm:text-3xl">
